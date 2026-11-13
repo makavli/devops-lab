@@ -97,6 +97,11 @@ cmd_check() {
   command -v kubeconform >/dev/null || cmd_tools
   bash -n lab
   if command -v shellcheck >/dev/null; then shellcheck lab; else echo "shellcheck not installed: skipped"; fi
+  # Zero cost: this private repo's CI runs only on our self-hosted runner, never on GitHub-hosted minutes.
+  if grep -rnE '^\s*runs-on:' .github/workflows | grep -v 'self-hosted'; then
+    echo "check: the runs-on lines above use GitHub-hosted runners; use [self-hosted, linux, devops-lab]" >&2
+    return 1
+  fi
   find apps platform gitops -name '*.yaml' ! -name values.yaml -print0 | xargs -0 kubeconform -strict -summary \
     -schema-location default \
     -schema-location 'https://raw.githubusercontent.com/datreeio/CRDs-catalog/main/{{.Group}}/{{.ResourceKind}}_{{.ResourceAPIVersion}}.json'
