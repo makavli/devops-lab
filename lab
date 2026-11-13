@@ -58,6 +58,9 @@ cmd_stop() {
   local cp workers
   cp=$(kind get nodes --name "$CLUSTER" | grep control-plane)
   mapfile -t workers < <(kind get nodes --name "$CLUSTER" | grep -v control-plane)
+  # kind sets --restart=on-failure:1, and a daemon restart (any WSL boot) ignores the manual stop:
+  # the SIGKILLed control plane (exit 137) and its workers would come back on their own. Park them.
+  docker update --restart=no "$cp" "${workers[@]}" >/dev/null
   # Workers first, control plane last: kubelets stop while the API server still answers.
   docker stop -t 60 "${workers[@]}" >/dev/null   # workers shut down cleanly within seconds
   # shortcut: the control plane never finishes its systemd shutdown, even with 60 s (exit 137 = SIGKILL);
@@ -73,6 +76,7 @@ cmd_start() {
   mapfile -t workers < <(kind get nodes --name "$CLUSTER" | grep -v control-plane)
   docker start "$cp" >/dev/null
   docker start "${workers[@]}" >/dev/null
+  docker update --restart=on-failure:1 "$cp" "${workers[@]}" >/dev/null   # kind default: self-heal by day
   kubectl config use-context "kind-$CLUSTER" >/dev/null
   retry 36 kubectl get --raw /readyz >/dev/null 2>&1   # API server back (up to 3 min)
   # Ready/Programmed/Healthy conditions are stale right after a restart (they still say what was true
