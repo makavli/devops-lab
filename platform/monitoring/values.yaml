@@ -1,0 +1,28 @@
+# kube-prometheus-stack (release "kps", namespace monitoring): Prometheus Operator, Prometheus,
+# Alertmanager, Grafana, node-exporter, kube-state-metrics. Version pinned in ./lab.
+# Handbook: docs/handbook/04-observability.md
+prometheus:
+  prometheusSpec:
+    retention: 3d
+    # By default the operator only picks up ServiceMonitors/PodMonitors/rules labelled release=kps.
+    # Lab: select them all, so Envoy and Argo CD monitors are scraped without extra labels.
+    serviceMonitorSelectorNilUsesHelmValues: false
+    podMonitorSelectorNilUsesHelmValues: false
+    ruleSelectorNilUsesHelmValues: false
+    resources: { requests: { cpu: 100m, memory: 512Mi }, limits: { memory: 2Gi } }
+
+alertmanager:
+  alertmanagerSpec:
+    resources: { requests: { cpu: 10m, memory: 32Mi }, limits: { memory: 128Mi } }
+
+grafana:
+  defaultDashboardsTimezone: browser
+  # Admin password: kubectl -n monitoring get secret kps-grafana -o jsonpath='{.data.admin-password}' | base64 -d
+
+# kind binds the scheduler, controller-manager, etcd and kube-proxy metrics to 127.0.0.1 inside the node,
+# so Prometheus cannot reach them and they would only fire "target down" alerts.
+# Exercise: rebind them via kubeadmConfigPatches in cluster/kind.yaml, then re-enable these.
+kubeControllerManager: { enabled: false }
+kubeScheduler: { enabled: false }
+kubeEtcd: { enabled: false }
+kubeProxy: { enabled: false }

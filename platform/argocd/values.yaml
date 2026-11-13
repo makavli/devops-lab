@@ -1,0 +1,11 @@
+# Argo CD (release "argocd", namespace argocd). Version pinned in ./lab. Handbook: docs/handbook/05-gitops.md
+configs:
+  params:
+    server.insecure: true   # TLS ends at the Gateway (plain HTTP in this lab); the server must not redirect to HTTPS
+dex: { enabled: false }               # no SSO in the lab: local admin user only
+notifications: { enabled: false }
+# Metrics + ServiceMonitors so Prometheus scrapes sync status, reconcile times, repo-server load.
+controller: { metrics: { enabled: true, serviceMonitor: { enabled: true } } }
+server: { metrics: { enabled: true, serviceMonitor: { enabled: true } } }
+repoServer: { metrics: { enabled: true, serviceMonitor: { enabled: true } } }
+applicationSet: { metrics: { enabled: true, serviceMonitor: { enabled: true } } }

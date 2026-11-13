@@ -1,0 +1,33 @@
+# UIs through the shared Gateway. *.localtest.me is public DNS that resolves to 127.0.0.1,
+# so these names work from Windows and WSL with no hosts-file edits.
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata: { name: grafana, namespace: monitoring }
+spec:
+  parentRefs: [{ name: lab, namespace: default }]
+  hostnames: ["grafana.localtest.me"]
+  rules: [{ backendRefs: [{ name: kps-grafana, port: 80 }] }]
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata: { name: prometheus, namespace: monitoring }
+spec:
+  parentRefs: [{ name: lab, namespace: default }]
+  hostnames: ["prometheus.localtest.me"]
+  rules: [{ backendRefs: [{ name: kps-kube-prometheus-stack-prometheus, port: 9090 }] }]
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata: { name: alertmanager, namespace: monitoring }
+spec:
+  parentRefs: [{ name: lab, namespace: default }]
+  hostnames: ["alertmanager.localtest.me"]
+  rules: [{ backendRefs: [{ name: kps-kube-prometheus-stack-alertmanager, port: 9093 }] }]
+---
+# Envoy proxy metrics (requests, upstream latency, per-endpoint stats): the data behind load balancing.
+apiVersion: monitoring.coreos.com/v1
+kind: PodMonitor
+metadata: { name: envoy-proxy, namespace: envoy-gateway-system }
+spec:
+  selector: { matchLabels: { app.kubernetes.io/component: proxy, app.kubernetes.io/managed-by: envoy-gateway } }
+  podMetricsEndpoints: [{ port: metrics, path: /stats/prometheus }]

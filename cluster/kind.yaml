@@ -1,0 +1,21 @@
+# kind cluster "lab": 1 control plane + 2 workers. Each node is a Docker container running systemd,
+# containerd and kubelet; kubeadm bootstraps it like real machines (etcd, apiserver... as static pods).
+# Recreate from scratch: ./lab down && ./lab up        Handbook: docs/handbook/02-cluster.md
+kind: Cluster
+apiVersion: kind.x-k8s.io/v1alpha4
+name: lab
+nodes:
+  - role: control-plane
+    kubeadmConfigPatches:
+      - |
+        kind: InitConfiguration
+        nodeRegistration:
+          kubeletExtraArgs:
+            node-labels: "ingress-ready=true"   # the Envoy proxy is pinned to this node (platform/envoy-gateway)
+    # Only this node publishes ports to WSL, and WSL forwards its localhost to Windows:
+    # browser -> localhost:80 -> this container :80 -> Envoy hostPort 80 -> pods.
+    extraPortMappings:
+      - { containerPort: 80, hostPort: 80, protocol: TCP }
+      - { containerPort: 443, hostPort: 443, protocol: TCP }
+  - role: worker
+  - role: worker
