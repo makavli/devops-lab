@@ -82,6 +82,13 @@ cmd_start() {
   cmd_status
 }
 
+## turnoff   end of day in one go: ./lab stop, then shut down WSL itself (closes this terminal, frees the RAM)
+cmd_turnoff() {
+  if kind get clusters 2>/dev/null | grep -qx "$CLUSTER"; then cmd_stop; fi
+  log "shutting down WSL: this terminal closes. Tomorrow: ./lab start"
+  wsl.exe --shutdown   # Windows interop: the same as running it from PowerShell
+}
+
 ## down      delete the cluster (everything in it is rebuilt by ./lab up)
 cmd_down() { kind delete cluster --name "$CLUSTER"; }
 
