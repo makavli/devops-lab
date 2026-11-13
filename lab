@@ -89,6 +89,9 @@ cmd_start() {
 ## turnoff   end of day in one go: ./lab stop, then shut down WSL itself (closes this terminal, frees the RAM)
 cmd_turnoff() {
   if kind get clusters 2>/dev/null | grep -qx "$CLUSTER"; then cmd_stop; fi
+  # A killed runner leaves its GitHub session open: at the next boot it can't reconnect for ~1 min and jobs
+  # queued meanwhile stay stuck. A clean stop closes the session. Never block the shutdown on it.
+  sudo systemctl stop 'actions.runner.*' || log "runner not stopped cleanly: re-run stuck jobs after ./lab start"
   log "shutting down WSL: this terminal closes. Tomorrow: ./lab start"
   wsl.exe --shutdown   # Windows interop: the same as running it from PowerShell
 }
