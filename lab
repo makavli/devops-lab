@@ -53,6 +53,35 @@ cmd_up() {
   cmd_status
 }
 
+## stop      end of day: stop the node containers cleanly (state kept), then run `wsl --shutdown` on Windows
+cmd_stop() {
+  local cp workers
+  cp=$(kind get nodes --name "$CLUSTER" | grep control-plane)
+  mapfile -t workers < <(kind get nodes --name "$CLUSTER" | grep -v control-plane)
+  # Workers first, control plane last: kubelets stop while the API server still answers.
+  docker stop -t 60 "${workers[@]}" >/dev/null   # workers shut down cleanly within seconds
+  # shortcut: the control plane never finishes its systemd shutdown, even with 60 s (exit 137 = SIGKILL);
+  # etcd is crash-consistent (WAL + fsync), so this equals a power cut it survives. Upgrade: find the hanging unit.
+  docker stop -t 30 "$cp" >/dev/null
+  docker ps -a --filter "label=io.x-k8s.kind.cluster=$CLUSTER" --format '{{.Names}}: {{.Status}}'
+}
+
+## start     start the stopped cluster, wait until traffic flows end to end
+cmd_start() {
+  local cp workers
+  cp=$(kind get nodes --name "$CLUSTER" | grep control-plane)
+  mapfile -t workers < <(kind get nodes --name "$CLUSTER" | grep -v control-plane)
+  docker start "$cp" >/dev/null
+  docker start "${workers[@]}" >/dev/null
+  kubectl config use-context "kind-$CLUSTER" >/dev/null
+  retry 36 kubectl get --raw /readyz >/dev/null 2>&1   # API server back (up to 3 min)
+  # Ready/Programmed/Healthy conditions are stale right after a restart (they still say what was true
+  # before the stop), so the real readiness test is a request through the whole path.
+  log "waiting for traffic through the Gateway"
+  retry 60 curl -sf -o /dev/null http://echo.localtest.me/hostname
+  cmd_status
+}
+
 ## down      delete the cluster (everything in it is rebuilt by ./lab up)
 cmd_down() { kind delete cluster --name "$CLUSTER"; }
 
