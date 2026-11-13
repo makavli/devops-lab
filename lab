@@ -58,6 +58,9 @@ cmd_stop() {
   local cp workers
   cp=$(kind get nodes --name "$CLUSTER" | grep control-plane)
   mapfile -t workers < <(kind get nodes --name "$CLUSTER" | grep -v control-plane)
+  # kind sets --restart=on-failure:1, and a daemon restart (any WSL boot) ignores the manual stop:
+  # the SIGKILLed control plane (exit 137) and its workers would come back on their own. Park them.
+  docker update --restart=no "$cp" "${workers[@]}" >/dev/null
   # Workers first, control plane last: kubelets stop while the API server still answers.
   docker stop -t 60 "${workers[@]}" >/dev/null   # workers shut down cleanly within seconds
   # shortcut: the control plane never finishes its systemd shutdown, even with 60 s (exit 137 = SIGKILL);
@@ -73,6 +76,7 @@ cmd_start() {
   mapfile -t workers < <(kind get nodes --name "$CLUSTER" | grep -v control-plane)
   docker start "$cp" >/dev/null
   docker start "${workers[@]}" >/dev/null
+  docker update --restart=on-failure:1 "$cp" "${workers[@]}" >/dev/null   # kind default: self-heal by day
   kubectl config use-context "kind-$CLUSTER" >/dev/null
   retry 36 kubectl get --raw /readyz >/dev/null 2>&1   # API server back (up to 3 min)
   # Ready/Programmed/Healthy conditions are stale right after a restart (they still say what was true
@@ -85,6 +89,9 @@ cmd_start() {
 ## turnoff   end of day in one go: ./lab stop, then shut down WSL itself (closes this terminal, frees the RAM)
 cmd_turnoff() {
   if kind get clusters 2>/dev/null | grep -qx "$CLUSTER"; then cmd_stop; fi
+  # A killed runner leaves its GitHub session open: at the next boot it can't reconnect for ~1 min and jobs
+  # queued meanwhile stay stuck. A clean stop closes the session. Never block the shutdown on it.
+  sudo systemctl stop 'actions.runner.*' || log "runner not stopped cleanly: re-run stuck jobs after ./lab start"
   log "shutting down WSL: this terminal closes. Tomorrow: ./lab start"
   wsl.exe --shutdown   # Windows interop: the same as running it from PowerShell
 }
