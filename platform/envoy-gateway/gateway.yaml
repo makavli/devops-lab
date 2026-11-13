@@ -1,0 +1,53 @@
+# Gateway API, platform side: the GatewayClass (which controller), its EnvoyProxy settings, and the shared
+# Gateway "lab". App teams only write HTTPRoutes that attach to it. Handbook: docs/handbook/03-traffic.md
+apiVersion: gateway.envoyproxy.io/v1alpha1
+kind: EnvoyProxy
+metadata: { name: kind, namespace: envoy-gateway-system }
+spec:
+  provider:
+    type: Kubernetes
+    kubernetes:
+      # Cluster, not the default Local: kind labels the control plane exclude-from-external-load-balancers,
+      # so MetalLB never announces from it; with Local only Envoy's own node (the control plane) may announce,
+      # which leaves the LB IP dead. Cluster lets the workers announce and kube-proxy forwards (client IP is SNATed).
+      envoyService: { externalTrafficPolicy: Cluster }
+      envoyDeployment:
+        replicas: 1
+        # hostPort: a surge pod could never schedule next to the old one, so stop the old pod first.
+        # (type: Recreate does the same on a fresh cluster but is rejected when the live Deployment
+        # still carries rollingUpdate defaults; this form works in both cases.)
+        strategy: { type: RollingUpdate, rollingUpdate: { maxSurge: 0, maxUnavailable: 1 } }
+        pod:
+          nodeSelector: { ingress-ready: "true" }   # the only node with ports 80/443 published (cluster/kind.yaml)
+          tolerations:
+            - { key: node-role.kubernetes.io/control-plane, operator: Exists, effect: NoSchedule }
+        patch:
+          type: StrategicMerge
+          value:
+            spec:
+              template:
+                spec:
+                  containers:
+                    - name: envoy
+                      ports:
+                        # Envoy runs non-root, so Gateway port 80 listens on 10080 inside the pod.
+                        - { name: http-host, containerPort: 10080, hostPort: 80, protocol: TCP }
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: GatewayClass
+metadata: { name: envoy }
+spec:
+  controllerName: gateway.envoyproxy.io/gatewayclass-controller
+  parametersRef: { group: gateway.envoyproxy.io, kind: EnvoyProxy, name: kind, namespace: envoy-gateway-system }
+---
+# One shared entry point. The Service it creates is type LoadBalancer, so MetalLB also gives it an IP.
+apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
+metadata: { name: lab, namespace: default }
+spec:
+  gatewayClassName: envoy
+  listeners:
+    - name: http
+      protocol: HTTP
+      port: 80
+      allowedRoutes: { namespaces: { from: All } }   # lab: any namespace may attach; prod: a label selector

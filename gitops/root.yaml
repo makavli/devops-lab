@@ -1,0 +1,20 @@
+# The root Application ("app of apps" entry point): Argo CD syncs everything under apps/ from main.
+# Applied by ./lab gitops once the repo is on GitHub and Argo CD has a deploy key.
+# Handbook: docs/handbook/05-gitops.md
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: apps
+  namespace: argocd
+  finalizers: [resources-finalizer.argocd.argoproj.io]   # deleting this app deletes what it deployed
+spec:
+  project: default
+  source:
+    repoURL: git@github.com:makavli/devops-lab.git
+    targetRevision: main
+    path: apps
+    directory: { recurse: true }
+  destination: { server: https://kubernetes.default.svc }
+  syncPolicy:
+    automated: { prune: true, selfHeal: true }   # Git is the truth: removed files are pruned, kubectl edits reverted
+    syncOptions: [CreateNamespace=true]

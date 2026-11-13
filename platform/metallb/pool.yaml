@@ -1,0 +1,14 @@
+# MetalLB in L2 mode: answers ARP for these IPs on the kind Docker bridge, so Services of
+# type LoadBalancer get a real external IP. Reachable from WSL, not from Windows (WSL NAT does not route it).
+# The range is the top of the kind subnet, clear of the node IPs Docker hands out from the bottom.
+# Check the subnet: docker network inspect kind -f '{{range .IPAM.Config}}{{.Subnet}} {{end}}'
+apiVersion: metallb.io/v1beta1
+kind: IPAddressPool
+metadata: { name: kind-pool, namespace: metallb-system }
+spec:
+  addresses: ["172.18.255.200-172.18.255.250"]
+---
+apiVersion: metallb.io/v1beta1
+kind: L2Advertisement
+metadata: { name: kind-l2, namespace: metallb-system }
+spec: { ipAddressPools: [kind-pool] }
