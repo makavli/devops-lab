@@ -6,7 +6,7 @@ kind: Application
 metadata:
   name: apps
   namespace: argocd
-  finalizers: [resources-finalizer.argocd.argoproj.io]   # deleting this app deletes what it deployed
+  finalizers: [resources-finalizer.argocd.argoproj.io/foreground]   # deleting this app deletes what it deployed
 spec:
   project: default
   source:
