@@ -312,7 +312,8 @@ CAPS_OVERVIEW = [
     (10.5, 13, "Kubernetes runs your apps as pods on the two workers, and replaces any pod that dies. Lesson 2."),
     (13, 17, "You open echo.localtest.me: the request enters on port 80, and Envoy picks an echo pod. Lesson 3."),
     (17, 20, "Prometheus collects numbers from every pod; Grafana draws them; Alertmanager warns you. Lesson 4."),
-    (20, 23.5, "Argo CD copies what GitHub says into the cluster, and CI tests every change first. Lessons 5 and 6."),
+    (20, 23.5, "Argo CD copies what GitHub says into the cluster; ./lab check tests every change on your PC first. "
+               "Lessons 5 and 6."),
     (23.5, 27, "That is the whole lab. Each lesson zooms into one layer, and lesson 7 shows how to debug it."),
 ]
 
@@ -702,37 +703,37 @@ CAPS_GITOPS = [
 
 # ---------- lesson 6: delivery ----------
 
-STATIONS_D = [("branch", "your change", ""), ("./lab check", "on your PC", ""), ("push + PR", "ask to merge", ""),
-              ("CI", "the runner", "in your WSL"), ("review", "a human reads", "the diff"),
-              ("merge", "into main", "(the owner)"), ("Argo CD", "deploys it", "")]
-MOVES_D = [(0, 0), (2.5, 0), (3.3, 1), (5.6, 1), (6.4, 0), (6.6, 0), (7.4, 1), (9.0, 1), (9.8, 2), (11.5, 2),
-           (12.3, 3), (14.5, 3), (15.3, 4), (16.3, 4), (17.1, 5), (17.4, 5), (18.2, 6)]
-MARKS_D = [(0, 2.4, True), (1, 8.2, True), (2, 10.4, True), (3, 13.6, True), (4, 16.0, True), (5, 17.2, True),
-           (6, 18.9, True)]
-SPIN_D = [(1, 3.3, 4.8), (1, 7.4, 8.2), (3, 12.3, 13.6)]
+STATIONS_D = [("branch", "your change", ""), ("./lab check", "on your PC", ""), ("push + PR", "the hook checks", "once more"),
+              ("review", "a human reads", "the diff"), ("merge", "into main", "(the owner)"), ("Argo CD", "deploys it", "")]
+MOVES_D = [(0, 0), (2.5, 0), (3.3, 1), (5.6, 1), (6.4, 0), (6.6, 0), (7.4, 1), (9.0, 1), (9.8, 2), (12.0, 2),
+           (12.8, 3), (13.8, 3), (14.6, 4), (15.0, 4), (15.8, 5)]
+MARKS_D = [(0, 2.4, True), (1, 8.2, True), (2, 11.0, True), (3, 13.6, True), (4, 14.8, True), (5, 16.5, True)]
+SPIN_D = [(1, 3.3, 4.8), (1, 7.4, 8.2), (2, 9.8, 11.0)]
+PITCH_D, BOX_D = 154, 140
 
 
 def sx(k):
-    return 25 + k * 132 + 59
+    return 25 + k * PITCH_D + BOX_D / 2
 
 
 def g_delivery(c, t):
+    last = len(STATIONS_D) - 1
     for k, (name, sub, sub2) in enumerate(STATIONS_D):
-        x = 25 + k * 132
+        x = 25 + k * PITCH_D
         done = any(s == k and t >= at for s, at, _ in MARKS_D)
-        c.box(x, 196, 118, 120, GREEN_BG if done else WHITE, GREEN if done else LINE)
+        c.box(x, 196, BOX_D, 120, GREEN_BG if done else WHITE, GREEN if done else LINE)
         c.circle(x + 18, 214, 11, INK)
         c.text(x + 18, 214, str(k + 1), 12, WHITE, "bold")
-        c.text(x + 59, 240, name, 14, INK, "mono" if name.startswith(".") else "bold")
-        c.text(x + 59, 262, sub, 11, MUTED)
+        c.text(x + BOX_D / 2, 240, name, 14, INK, "mono" if name.startswith(".") else "bold")
+        c.text(x + BOX_D / 2, 262, sub, 11, MUTED)
         if sub2:
-            c.text(x + 59, 278, sub2, 11, MUTED)
-        if k < 6:
-            c.arrow(x + 119, 256, x + 131, 256, LINE, 2, head=7)
+            c.text(x + BOX_D / 2, 278, sub2, 11, MUTED)
+        if k < last:
+            c.arrow(x + BOX_D + 1, 256, x + PITCH_D - 1, 256, LINE, 2, head=7)
     for i in range(3):
-        state, a = life(t, 18.9 + 0.3 * i, starting=0.4)
+        state, a = life(t, MARKS_D[-1][1] + 0.3 * i, starting=0.4)
         if state:
-            pod(c, sx(6) - 32 + i * 32, 298, "", state, a, GREEN_BG, w=24, h=18)
+            pod(c, sx(last) - 32 + i * 32, 298, "", state, a, GREEN_BG, w=24, h=18)
     for k, at, ok in MARKS_D:
         mark(c, sx(k), 340, ok, a=ease(seg(t, at, at + 0.25)))
     if 4.8 <= t < 6.4:
@@ -740,8 +741,8 @@ def g_delivery(c, t):
     for k, a, b in SPIN_D:
         if a <= t < b:
             spinner(c, sx(k), 340, t)
-    for (x0, x1, label) in ((25 + 132, 25 + 3 * 132 + 118, "CI: test every change, automatically"),
-                            (25 + 5 * 132, 25 + 6 * 132 + 118, "CD: ship what passed")):
+    for (x0, x1, label) in ((25 + PITCH_D, 25 + 2 * PITCH_D + BOX_D, "tested on your PC, twice"),
+                            (25 + 4 * PITCH_D, 25 + 5 * PITCH_D + BOX_D, "CD: ship what passed")):
         c.line([(x0, 372), (x0, 380), (x1, 380), (x1, 372)], MUTED, 1.5)
         c.text((x0 + x1) / 2, 398, label, 13, MUTED, "bold")
     pos = 0.0
@@ -751,7 +752,7 @@ def g_delivery(c, t):
             break
     else:
         pos = MOVES_D[-1][1]
-    cx = sx(0) + pos * 132
+    cx = sx(0) + pos * PITCH_D
     failed = 4.8 <= t < 6.4
     c.box(cx - 46, 142, 92, 36, RED_BG if failed else BLUE_BG, RED if failed else BLUE, r=8)
     c.text(cx, 160, "fix it!" if failed else "my change", 13, RED if failed else INK, "bold")
@@ -759,12 +760,12 @@ def g_delivery(c, t):
 
 CAPS_DELIVERY = [
     (0, 2.5, "You change files on a branch, never straight on main.", "1"),
-    (2.5, 6.5, "./lab check tests the change on your PC first. Red? Fix it now, before anyone else sees it.", "2"),
-    (6.5, 9, "Fixed and checked again: green. Only now does the change leave your PC.", "2"),
-    (9, 11.5, "Push the branch and open a pull request: a request to merge, with the diff for others to read.", "3"),
-    (11.5, 14.5, "CI runs the very same ./lab check on the runner in your WSL: same test, no surprises, no cost.", "4"),
-    (14.5, 17, "A human reads the diff. Then the owner merges it: main only ever changes this way.", "5-6"),
-    (17, 22, "Argo CD sees the new main and deploys it. Nobody typed kubectl apply.", "7"),
+    (2.5, 6.5, "./lab check tests the change on your PC. Red? Fix it now, before anyone else sees it.", "2"),
+    (6.5, 9, "Fixed and checked again: green.", "2"),
+    (9, 12, "git push runs ./lab check once more (a pre-push hook): a red change never leaves your PC. Then open a PR.",
+     "3"),
+    (12, 15, "A human reads the diff. Then the owner merges it: main only ever changes this way.", "4-5"),
+    (15, 20, "Argo CD sees the new main and deploys it. No CI server anywhere: every test ran on your PC.", "6"),
 ]
 
 
@@ -844,7 +845,7 @@ GIFS = {
     "monitoring": (19, "Monitoring: measure all the time, shout when it matters", "Lesson 4", g_monitoring,
                    CAPS_MONITORING),
     "gitops": (21, "GitOps: Git is the boss", "Lesson 5", g_gitops, CAPS_GITOPS),
-    "delivery": (22, "CI/CD: every change takes the same road", "Lesson 6", g_delivery, CAPS_DELIVERY),
+    "delivery": (20, "Delivery: every change takes the same road", "Lesson 6", g_delivery, CAPS_DELIVERY),
     "troubleshooting": (24, "Troubleshooting: walk the ladder, don't guess", "Lesson 7", g_troubleshooting,
                         CAPS_TROUBLE),
 }

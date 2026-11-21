@@ -12,7 +12,7 @@ Read them in order: each one builds on the one before. About 10 minutes each, pl
 | 3 | [Traffic and load balancing](03-traffic.md) | one front door, many rooms |
 | 4 | [Monitoring](04-monitoring.md) | measure all the time, shout when it matters |
 | 5 | [GitOps with Argo CD](05-gitops.md) | Git is the boss |
-| 6 | [CI/CD](06-delivery.md) | every change takes the same road |
+| 6 | [Delivery](06-delivery.md) | every change takes the same road, tested on your PC |
 | 7 | [Troubleshooting](07-troubleshooting.md) | walk the ladder, don't guess |
 
 ## How each lesson works
