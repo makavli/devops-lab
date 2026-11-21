@@ -89,19 +89,19 @@ Click one to open its lesson.
 
 <table>
 <tr>
-<td width="50%"><a href="docs/lessons/01-containers.md"><img src="docs/lessons/gifs/containers.gif" alt="An app packed into a container box that runs the same on any machine"></a><br><b>1. Containers</b>: one app in a sealed box</td>
-<td width="50%"><a href="docs/lessons/02-kubernetes.md"><img src="docs/lessons/gifs/kubernetes.gif" alt="Kubernetes replacing a crashed pod to keep the count it was asked for"></a><br><b>2. Kubernetes</b>: it keeps what you asked for true</td>
+<td width="50%"><a href="docs/lessons/01-containers.md"><img src="docs/lessons/gifs/containers.gif" alt="An image is copied into three identical containers; one is deleted and started again, identical"></a><br><b>1. Containers</b>: one app in a sealed box</td>
+<td width="50%"><a href="docs/lessons/02-kubernetes.md"><img src="docs/lessons/gifs/kubernetes.gif" alt="You ask for 5 echo pods; the scheduler spreads them over two workers; one crashes and a controller replaces it"></a><br><b>2. Kubernetes</b>: it keeps what you asked for true</td>
 </tr>
 <tr>
-<td><a href="docs/lessons/03-traffic.md"><img src="docs/lessons/gifs/traffic.gif" alt="Requests entering through Envoy and spread across the echo pods"></a><br><b>3. Traffic</b>: one front door, many rooms</td>
-<td><a href="docs/lessons/04-monitoring.md"><img src="docs/lessons/gifs/monitoring.gif" alt="Prometheus scraping metrics, Grafana drawing them, Alertmanager raising an alert"></a><br><b>4. Monitoring</b>: measure, then shout when it matters</td>
+<td><a href="docs/lessons/03-traffic.md"><img src="docs/lessons/gifs/traffic.gif" alt="Requests enter at localhost:80; Envoy matches the name to a route and sends each request to the next echo pod in turn"></a><br><b>3. Traffic</b>: one front door, many rooms</td>
+<td><a href="docs/lessons/04-monitoring.md"><img src="docs/lessons/gifs/monitoring.gif" alt="Prometheus pulls numbers from targets; Grafana graphs echo&#x27;s pods; the count drops, the rule goes Pending, then Firing, then clears"></a><br><b>4. Monitoring</b>: measure, then shout when it matters</td>
 </tr>
 <tr>
-<td><a href="docs/lessons/05-gitops.md"><img src="docs/lessons/gifs/gitops.gif" alt="Argo CD copying what Git says into the cluster and undoing a manual change"></a><br><b>5. GitOps</b>: Git is the boss</td>
-<td><a href="docs/lessons/06-delivery.md"><img src="docs/lessons/gifs/delivery.gif" alt="A change going from branch to local check, push, review, merge and Argo CD"></a><br><b>6. Delivery</b>: the same road for every change</td>
+<td><a href="docs/lessons/05-gitops.md"><img src="docs/lessons/gifs/gitops.gif" alt="Git says 3, then a merged PR says 5 and Argo CD syncs; a hand edit scales to 1 and selfHeal puts it back to 5"></a><br><b>5. GitOps</b>: Git is the boss</td>
+<td><a href="docs/lessons/06-delivery.md"><img src="docs/lessons/gifs/delivery.gif" alt="A change goes from branch to ./lab check (red, fixed, green), push with the hook checking again, review, merge, and Argo CD"></a><br><b>6. Delivery</b>: the same road for every change</td>
 </tr>
 <tr>
-<td><a href="docs/lessons/07-troubleshooting.md"><img src="docs/lessons/gifs/troubleshooting.gif" alt="Climbing a ladder of checks from the pods down to the cause"></a><br><b>7. Troubleshooting</b>: walk the ladder, don't guess</td>
+<td><a href="docs/lessons/07-troubleshooting.md"><img src="docs/lessons/gifs/troubleshooting.gif" alt="The ladder: get pods shows CrashLoopBackOff, events show restarts, describe shows exit code 1, logs show a typo; fix in Git"></a><br><b>7. Troubleshooting</b>: walk the ladder, don't guess</td>
 <td></td>
 </tr>
 </table>
