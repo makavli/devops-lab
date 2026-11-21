@@ -40,7 +40,6 @@ Rule: no token or private key at rest unencrypted on this box.
 | gh token | GNOME keyring (Secret Service over D-Bus) | encrypted with the keyring password, unlocked once per WSL boot |
 | your SSH key | `~/.ssh/id_ed25519` | **passphrase** + `ssh-agent` holding it for the session |
 | Argo CD deploy key | Kubernetes Secret only (`./lab gitops`) | read-only, rotated on every run, never written to disk |
-| runner token | single-use, 1 h | consumed by `./lab runner` |
 
 ### Keyring setup
 ```bash

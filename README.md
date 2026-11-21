@@ -2,7 +2,7 @@
 
 A production-shaped Kubernetes platform that runs entirely on one Windows PC, for free:
 WSL2 → Docker Engine → kind (3 nodes) → MetalLB + Gateway API (Envoy) → Prometheus/Grafana → Argo CD (GitOps)
-→ GitHub Actions on a self-hosted runner.
+→ one local gate, `./lab check`, run before every push (no CI).
 
 ```
  Windows browser                                   WSL2 (Ubuntu 24.04)
@@ -47,7 +47,6 @@ WSL2 → Docker Engine → kind (3 nodes) → MetalLB + Gateway API (Envoy) → 
 | `platform/` | platform | MetalLB pool, Gateway + EnvoyProxy, monitoring and Argo CD values and routes |
 | `apps/` | app teams | workloads; delivered by Argo CD once GitOps is on |
 | `gitops/root.yaml` | platform | the Argo CD root Application that watches `apps/` |
-| `.github/workflows/ci.yml` | platform | `./lab check` on every PR, on the self-hosted runner |
 
 ## Handbooks
 
@@ -56,5 +55,5 @@ WSL2 → Docker Engine → kind (3 nodes) → MetalLB + Gateway API (Envoy) → 
 3. [Traffic: MetalLB, Gateway API, Envoy, scheduling](docs/handbook/03-traffic.md)
 4. [Observability: Prometheus, Grafana, Alertmanager](docs/handbook/04-observability.md)
 5. [GitOps: Argo CD](docs/handbook/05-gitops.md)
-6. [CI and the delivery flow](docs/handbook/06-ci.md)
+6. [Delivery flow and the local gate](docs/handbook/06-ci.md)
 7. [Troubleshooting runbook](docs/handbook/07-troubleshooting.md)

@@ -89,9 +89,6 @@ cmd_start() {
 ## turnoff   end of day in one go: ./lab stop, then shut down WSL itself (closes this terminal, frees the RAM)
 cmd_turnoff() {
   if kind get clusters 2>/dev/null | grep -qx "$CLUSTER"; then cmd_stop; fi
-  # A killed runner leaves its GitHub session open: at the next boot it can't reconnect for ~1 min and jobs
-  # queued meanwhile stay stuck. A clean stop closes the session. Never block the shutdown on it.
-  sudo systemctl stop 'actions.runner.*' || log "runner not stopped cleanly: re-run stuck jobs after ./lab start"
   log "shutting down WSL: this terminal closes. Tomorrow: ./lab start"
   wsl.exe --shutdown   # Windows interop: the same as running it from PowerShell
 }
@@ -135,16 +132,13 @@ cmd_gitops() {
   kubectl -n argocd get applications
 }
 
-## check     validate the shell script and every manifest against its schema (CI runs this too)
+## check     validate the shell script and every manifest against its schema (the pre-push hook runs it; no CI)
 cmd_check() {
   command -v kubeconform >/dev/null || cmd_tools
   bash -n lab
   if command -v shellcheck >/dev/null; then shellcheck lab; else echo "shellcheck not installed: skipped"; fi
-  # Zero cost: this private repo's CI runs only on our self-hosted runner, never on GitHub-hosted minutes.
-  if grep -rnE '^\s*runs-on:' .github/workflows | grep -v 'self-hosted'; then
-    echo "check: the runs-on lines above use GitHub-hosted runners; use [self-hosted, linux, devops-lab]" >&2
-    return 1
-  fi
+  # No CI in this private repo (owner, 2026-11-21): every test runs locally, before the push.
+  if [ -d .github/workflows ]; then echo "check: no CI here; remove .github/workflows (docs/handbook/06-ci.md)" >&2; return 1; fi
   find apps platform gitops -name '*.yaml' ! -name values.yaml -print0 | xargs -0 kubeconform -strict -summary \
     -schema-location default \
     -schema-location 'https://raw.githubusercontent.com/datreeio/CRDs-catalog/main/{{.Group}}/{{.ResourceKind}}_{{.ResourceAPIVersion}}.json'
@@ -156,22 +150,6 @@ cmd_tools() {
   curl -fsSL https://github.com/yannh/kubeconform/releases/latest/download/kubeconform-linux-amd64.tar.gz | tar xz -C ~/.local/bin kubeconform
   curl -fsSL https://github.com/derailed/k9s/releases/latest/download/k9s_Linux_amd64.tar.gz | tar xz -C ~/.local/bin k9s
   kubeconform -v; k9s version --short
-}
-
-## runner    install this WSL box as the repo's self-hosted GitHub Actions runner (systemd service)
-cmd_runner() {
-  local r dir=~/actions-runner v tok
-  r=$(repo)
-  if [ ! -x "$dir/run.sh" ]; then
-    v=$(gh api repos/actions/runner/releases/latest -q .tag_name); v=${v#v}
-    mkdir -p "$dir"
-    curl -fsSL "https://github.com/actions/runner/releases/download/v$v/actions-runner-linux-x64-$v.tar.gz" | tar xz -C "$dir"
-    sudo "$dir/bin/installdependencies.sh"
-  fi
-  tok=$(gh api -X POST "repos/$r/actions/runners/registration-token" -q .token)   # single-use, expires in 1h
-  (cd "$dir" && ./config.sh --unattended --replace --url "https://github.com/$r" --token "$tok" \
-    --name "$(hostname)-wsl" --labels devops-lab)
-  (cd "$dir" && { sudo ./svc.sh status >/dev/null 2>&1 || sudo ./svc.sh install "$USER"; } && sudo ./svc.sh start)
 }
 
 ## help      this list
