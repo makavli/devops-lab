@@ -4,22 +4,48 @@
 set -euo pipefail
 cd "$(dirname "$0")"
 export PATH="$HOME/.local/bin:$PATH"
+# One temp dir per run, removed on any exit (an error and Ctrl-C included): downloads and the deploy key go here.
+TMP=$(mktemp -d); trap 'rm -rf "$TMP"' EXIT
 
 CLUSTER=lab
 # Pinned platform versions: bump one, run ./lab up, check, commit (docs/handbook/06-ci.md).
 METALLB_VERSION=0.16.2
 ENVOY_GATEWAY_VERSION=1.10.0
 KPS_VERSION=93.3.0          # kube-prometheus-stack
-ARGOCD_VERSION=10.18.0      # argo-cd chart (Argo CD v3.6)
+ARGOCD_VERSION=10.18.0      # argo-cd chart (Argo CD v3.6.1: bump the CLI pin in docs/handbook/05-gitops.md with it)
+# Tools ./lab tools installs, each checked against its release's SHA-256 (CI downloads kubeconform too).
+# Bump a version and its checksum together. shortcut: linux-amd64 only; add an arch switch for arm64 hosts.
+KUBECONFORM_VERSION=0.8.0
+KUBECONFORM_SHA256=9bc2bffbf71f261128533edaf912153948b7ff238f9a531ae6d34466ec287883   # kubeconform-linux-amd64.tar.gz
+K9S_VERSION=0.51.0
+K9S_SHA256=c3752ad51a5a4015a113819c4eeb6e55a4d0e4b8e652494797532f6fc8161dd7           # k9s_Linux_amd64.tar.gz
+# CRD schemas for ./lab check, from a pinned commit of datreeio/CRDs-catalog (its main moves). Bump it by hand too.
+CRDS_CATALOG_COMMIT=784ec895547a36e548e6810b41f27baade3a0890
 
 log() { printf '\n\033[1;34m==> %s\033[0m\n' "$*"; }
 # retry N cmd...: admission webhooks answer a few seconds after their Deployment is Ready
 retry() { local n=$1; shift; until "$@"; do ((--n)) || return 1; sleep 5; done; }
 repo() { gh repo view --json nameWithOwner -q .nameWithOwner; }
+die() { echo "lab: $*" >&2; exit 1; }
+# Every kubectl and helm call below targets the lab cluster, whatever context is current.
+kubectl() { command kubectl --context "kind-$CLUSTER" "$@"; }
+helm() { command helm --kube-context "kind-$CLUSTER" "$@"; }
+exists() { kind get clusters 2>/dev/null | grep -qx "$CLUSTER"; }
+running() { [ "$(docker inspect -f '{{.State.Running}}' "$CLUSTER-control-plane" 2>/dev/null)" = true ]; }
+# fetch URL SHA256 FILE: download a release tarball over HTTPS only, refuse it unless the checksum matches,
+# unpack FILE into ~/.local/bin
+fetch() {
+  local ok=0
+  if curl -fsSL --proto '=https' --tlsv1.2 "$1" -o "$TMP/dl" && echo "$2  $TMP/dl" | sha256sum -c --quiet \
+    && mkdir -p ~/.local/bin && tar xzf "$TMP/dl" -C ~/.local/bin "$3"; then ok=1; fi
+  rm -f "$TMP/dl"
+  [ "$ok" = 1 ] || { echo "fetch: download, checksum or unpack failed: $1" >&2; return 1; }
+}
 
 ## up        create the cluster if missing, install/upgrade the whole platform, deploy apps
 cmd_up() {
-  kind get clusters 2>/dev/null | grep -qx "$CLUSTER" || kind create cluster --config cluster/kind.yaml
+  if exists; then running || die "the cluster is stopped: run ./lab start first"
+  else kind create cluster --config cluster/kind.yaml; fi
   kubectl config use-context "kind-$CLUSTER" >/dev/null
 
   log "MetalLB $METALLB_VERSION"
@@ -56,6 +82,7 @@ cmd_up() {
 ## stop      end of day: stop the node containers cleanly (state kept), then run `wsl --shutdown` on Windows
 cmd_stop() {
   local cp workers
+  exists || die "no cluster named $CLUSTER: nothing to stop (./lab up builds it)"
   cp=$(kind get nodes --name "$CLUSTER" | grep control-plane)
   mapfile -t workers < <(kind get nodes --name "$CLUSTER" | grep -v control-plane)
   # kind sets --restart=on-failure:1, and a daemon restart (any WSL boot) ignores the manual stop:
@@ -72,6 +99,7 @@ cmd_stop() {
 ## start     start the stopped cluster, wait until traffic flows end to end
 cmd_start() {
   local cp workers
+  exists || die "no cluster named $CLUSTER: ./lab up builds it"
   cp=$(kind get nodes --name "$CLUSTER" | grep control-plane)
   mapfile -t workers < <(kind get nodes --name "$CLUSTER" | grep -v control-plane)
   docker start "$cp" >/dev/null
@@ -82,14 +110,17 @@ cmd_start() {
   # Ready/Programmed/Healthy conditions are stale right after a restart (they still say what was true
   # before the stop), so the real readiness test is a request through the whole path.
   log "waiting for traffic through the Gateway"
-  retry 60 curl -sf -o /dev/null http://echo.localtest.me/hostname
+  # The Host header on 127.0.0.1 needs no DNS (*.localtest.me is public DNS), and each try gives up after 5 s.
+  retry 60 curl -sf --max-time 5 -o /dev/null -H 'Host: echo.localtest.me' http://127.0.0.1/hostname \
+    || die "no answer through the Gateway after 5 min: ./lab status, then docs/handbook/07-troubleshooting.md"
   cmd_status
 }
 
-## turnoff   end of day in one go: ./lab stop, then shut down WSL itself (closes this terminal, frees the RAM)
+## turnoff   end of day in one go: ./lab stop, then shut down WSL (every distro; closes this terminal, frees the RAM)
 cmd_turnoff() {
-  if kind get clusters 2>/dev/null | grep -qx "$CLUSTER"; then cmd_stop; fi
-  log "shutting down WSL: this terminal closes. Tomorrow: ./lab start"
+  if exists; then cmd_stop; fi
+  command -v wsl.exe >/dev/null || { log "not in WSL: the cluster is stopped, nothing more to shut down"; return; }
+  log "shutting down WSL: every WSL distro stops and this terminal closes. Next time: ./lab start"
   wsl.exe --shutdown   # Windows interop: the same as running it from PowerShell
 }
 
@@ -118,42 +149,53 @@ cmd_passwords() {
 
 ## gitops    give Argo CD a fresh read-only deploy key, then apply the root app (needs gh auth + pushed repo)
 cmd_gitops() {
-  local r url tmp id
+  local r url old id
   r=$(repo); url="git@github.com:$r.git"
-  tmp=$(mktemp -d); trap 'rm -rf "$tmp"' RETURN   # the private key never stays on disk outside the cluster
-  ssh-keygen -q -t ed25519 -N "" -C "argocd@devops-lab" -f "$tmp/key"
-  for id in $(gh api "repos/$r/keys" -q '.[] | select(.title=="argocd-lab") | .id'); do
-    gh api -X DELETE "repos/$r/keys/$id"            # rotate: one live deploy key at a time
-  done
-  gh repo deploy-key add "$tmp/key.pub" --title argocd-lab   # read-only unless --allow-write
+  # The private key is written to $TMP, which goes when ./lab exits (an error included): then only the cluster has it.
+  ssh-keygen -q -t ed25519 -N "" -C "argocd@devops-lab" -f "$TMP/key"
+  old=$(gh api "repos/$r/keys" -q '.[] | select(.title=="argocd-lab") | .id')
+  gh repo deploy-key add "$TMP/key.pub" --title argocd-lab   # read-only unless --allow-write
   kubectl -n argocd create secret generic repo-devops-lab --from-literal=type=git --from-literal=url="$url" \
-    --from-file=sshPrivateKey="$tmp/key" --dry-run=client -o yaml \
+    --from-file=sshPrivateKey="$TMP/key" --dry-run=client -o yaml \
     | kubectl label --local -f - argocd.argoproj.io/secret-type=repository -o yaml | kubectl apply -f -
+  # Rotate: the old keys go only once the new one is in the Secret, so a failure above leaves a working pair.
+  for id in $old; do gh api -X DELETE "repos/$r/keys/$id"; done
   sed "s#repoURL: .*#repoURL: $url#" gitops/root.yaml | kubectl apply -f -
   kubectl -n argocd get applications
 }
 
-## check     validate the shell script and every manifest against its schema (the pre-push hook runs it; no CI)
+## check     validate the script, the workflow rules and every manifest against its schema (the pre-push hook and CI run it)
 cmd_check() {
-  command -v kubeconform >/dev/null || cmd_tools
-  bash -n lab
-  if command -v shellcheck >/dev/null; then shellcheck lab; else echo "shellcheck not installed: skipped"; fi
-  # No CI in this private repo (owner, 2026-11-21): every test runs locally, before the push.
-  if [ -d .github/workflows ]; then echo "check: no CI here; remove .github/workflows (docs/handbook/06-ci.md)" >&2; return 1; fi
+  command -v kubeconform >/dev/null || install_kubeconform
+  bash -n lab; bash -n .githooks/pre-push
+  if command -v shellcheck >/dev/null; then shellcheck lab .githooks/pre-push; else echo "shellcheck not installed: skipped"; fi
+  # Public repo: CI only on GitHub's own runners (a fork's PR must never run on a self-hosted machine), and every
+  # action pinned to a full commit SHA (a tag can be moved to other code). These greps are backstops for the plain
+  # cases (a `runs-on:` expression or a flow-style `uses:` slips through): the repo settings are the real rule.
+  if grep -rnE '^[^#]*self-hosted' .github/workflows; then echo "check: no self-hosted runner in a public repo" >&2; return 1; fi
+  if grep -rnE '^\s*(-\s*)?uses:' .github/workflows | grep -vE 'uses:\s*[^@[:space:]]+@[0-9a-f]{40}(\s|$)'; then
+    echo "check: pin the actions above to a full commit SHA" >&2; return 1
+  fi
   find apps platform gitops -name '*.yaml' ! -name values.yaml -print0 | xargs -0 kubeconform -strict -summary \
     -schema-location default \
-    -schema-location 'https://raw.githubusercontent.com/datreeio/CRDs-catalog/main/{{.Group}}/{{.ResourceKind}}_{{.ResourceAPIVersion}}.json'
+    -schema-location "https://raw.githubusercontent.com/datreeio/CRDs-catalog/$CRDS_CATALOG_COMMIT/{{.Group}}/{{.ResourceKind}}_{{.ResourceAPIVersion}}.json"
 }
 
-## tools     install kubeconform and k9s into ~/.local/bin (no sudo)
+install_kubeconform() {
+  fetch "https://github.com/yannh/kubeconform/releases/download/v$KUBECONFORM_VERSION/kubeconform-linux-amd64.tar.gz" \
+    "$KUBECONFORM_SHA256" kubeconform
+}
+
+## tools     install the pinned kubeconform and k9s into ~/.local/bin, checksums verified (no sudo)
 cmd_tools() {
-  mkdir -p ~/.local/bin
-  curl -fsSL https://github.com/yannh/kubeconform/releases/latest/download/kubeconform-linux-amd64.tar.gz | tar xz -C ~/.local/bin kubeconform
-  curl -fsSL https://github.com/derailed/k9s/releases/latest/download/k9s_Linux_amd64.tar.gz | tar xz -C ~/.local/bin k9s
+  install_kubeconform
+  fetch "https://github.com/derailed/k9s/releases/download/v$K9S_VERSION/k9s_Linux_amd64.tar.gz" "$K9S_SHA256" k9s
   kubeconform -v; k9s version --short
 }
 
 ## help      this list
-cmd_help() { grep '^## ' "$0" | cut -c4-; }
+cmd_help() { grep '^## ' "${0##*/}" | cut -c4-; }   # by basename: the cd above left the caller's folder
 
-"cmd_${1:-help}" "${@:2}"
+cmd=${1:-help}; case $cmd in -h|--help) cmd=help ;; esac
+declare -F "cmd_$cmd" >/dev/null || { echo "lab: unknown command '$cmd'" >&2; cmd_help >&2; exit 1; }
+"cmd_$cmd" "${@:2}"

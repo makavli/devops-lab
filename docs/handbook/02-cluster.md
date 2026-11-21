@@ -9,7 +9,7 @@ hiding what we want to learn. Minikube is single-node by default.
 ## Layout (`cluster/kind.yaml`)
 | Node | Role | Special |
 |---|---|---|
-| lab-control-plane | control plane, tainted `NoSchedule` | label `ingress-ready=true`; ports 80/443 published to WSL |
+| lab-control-plane | control plane, tainted `NoSchedule` | label `ingress-ready=true`; port 80 published on 127.0.0.1 |
 | lab-worker, lab-worker2 | workloads | |
 
 The Envoy proxy tolerates the taint and is pinned to the control plane, the only node with published ports.
@@ -33,9 +33,18 @@ k9s                                             # terminal UI (./lab tools insta
 ## Exercises
 1. Stop a worker: `docker stop lab-worker`. Watch `kubectl get nodes -w` go NotReady after ~40 s and pods
    get evicted after the 5 min `tolerationSeconds` of `node.kubernetes.io/unreachable`. `docker start` it.
-2. Delete the scheduler's static pod manifest (move it out of `/etc/kubernetes/manifests`), create a pod,
-   see it stay Pending with no events. Move it back.
-3. Upgrade practice: change the node image in `cluster/kind.yaml` (`image: kindest/node:vX.Y.Z`),
-   `./lab down && ./lab up`, and check what broke.
+2. Stop the scheduler: move its static pod manifest out, and the kubelet removes the pod. A new pod stays
+   Pending with no events, because nothing is there to place it.
+   ```bash
+   docker exec lab-control-plane mv /etc/kubernetes/manifests/kube-scheduler.yaml /root/
+   kubectl run probe --image=registry.k8s.io/pause:3.10; kubectl get pod probe        # Pending
+   docker exec lab-control-plane mv /root/kube-scheduler.yaml /etc/kubernetes/manifests/   # undo: probe runs
+   kubectl delete pod probe
+   ```
+3. Upgrade practice: change the pinned node `image:` lines in `cluster/kind.yaml` (tags and digests are in
+   kind's release notes), `./lab down && ./lab up && ./lab gitops`, and check what broke.
 4. Re-enable control-plane metrics: add `kubeadmConfigPatches` binding scheduler/controller-manager/etcd
    metrics to `0.0.0.0`, then turn them back on in `platform/monitoring/values.yaml`.
+
+Exercises 3 and 4 rebuild the cluster, which nothing in it survives. Undo both:
+`git checkout cluster/kind.yaml platform/monitoring/values.yaml && ./lab down && ./lab up && ./lab gitops`.

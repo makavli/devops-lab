@@ -18,7 +18,7 @@ spec:
         # still carries rollingUpdate defaults; this form works in both cases.)
         strategy: { type: RollingUpdate, rollingUpdate: { maxSurge: 0, maxUnavailable: 1 } }
         pod:
-          nodeSelector: { ingress-ready: "true" }   # the only node with ports 80/443 published (cluster/kind.yaml)
+          nodeSelector: { ingress-ready: "true" }   # the only node with a published port, 80 (cluster/kind.yaml)
           tolerations:
             - { key: node-role.kubernetes.io/control-plane, operator: Exists, effect: NoSchedule }
         patch:

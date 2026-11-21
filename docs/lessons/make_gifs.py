@@ -703,13 +703,15 @@ CAPS_GITOPS = [
 
 # ---------- lesson 6: delivery ----------
 
-STATIONS_D = [("branch", "your change", ""), ("./lab check", "on your PC", ""), ("push + PR", "the hook checks", "once more"),
-              ("review", "a human reads", "the diff"), ("merge", "into main", "(the owner)"), ("Argo CD", "deploys it", "")]
-MOVES_D = [(0, 0), (2.5, 0), (3.3, 1), (5.6, 1), (6.4, 0), (6.6, 0), (7.4, 1), (9.0, 1), (9.8, 2), (12.0, 2),
-           (12.8, 3), (13.8, 3), (14.6, 4), (15.0, 4), (15.8, 5)]
-MARKS_D = [(0, 2.4, True), (1, 8.2, True), (2, 11.0, True), (3, 13.6, True), (4, 14.8, True), (5, 16.5, True)]
-SPIN_D = [(1, 3.3, 4.8), (1, 7.4, 8.2), (2, 9.8, 11.0)]
-PITCH_D, BOX_D = 154, 140
+STATIONS_D = [("branch", "your change", ""), ("./lab check", "on your PC", ""), ("push", "the hook checks", "once more"),
+              ("CI", "GitHub checks", "on its machines"), ("review", "a human reads", "the diff"),
+              ("merge", "into main", "(CI green)"), ("Argo CD", "deploys it", "")]
+MOVES_D = [(0, 0), (2.5, 0), (3.3, 1), (5.6, 1), (6.4, 0), (6.6, 0), (7.4, 1), (9.0, 1), (9.8, 2), (11.6, 2),
+           (12.4, 3), (14.6, 3), (15.4, 4), (16.6, 4), (17.2, 5), (17.8, 5), (18.4, 6)]
+MARKS_D = [(0, 2.4, True), (1, 8.2, True), (2, 11.0, True), (3, 14.0, True), (4, 16.2, True), (5, 17.4, True),
+           (6, 19.0, True)]
+SPIN_D = [(1, 3.3, 4.8), (1, 7.4, 8.2), (2, 9.8, 11.0), (3, 12.4, 14.0), (4, 15.4, 16.2)]
+PITCH_D, BOX_D = 132, 118
 
 
 def sx(k):
@@ -741,8 +743,8 @@ def g_delivery(c, t):
     for k, a, b in SPIN_D:
         if a <= t < b:
             spinner(c, sx(k), 340, t)
-    for (x0, x1, label) in ((25 + PITCH_D, 25 + 2 * PITCH_D + BOX_D, "tested on your PC, twice"),
-                            (25 + 4 * PITCH_D, 25 + 5 * PITCH_D + BOX_D, "CD: ship what passed")):
+    for (x0, x1, label) in ((25 + PITCH_D, 25 + 3 * PITCH_D + BOX_D, "CI: every change tested, here and on GitHub"),
+                            (25 + 5 * PITCH_D, 25 + 6 * PITCH_D + BOX_D, "CD: ship what passed")):
         c.line([(x0, 372), (x0, 380), (x1, 380), (x1, 372)], MUTED, 1.5)
         c.text((x0 + x1) / 2, 398, label, 13, MUTED, "bold")
     pos = 0.0
@@ -762,10 +764,10 @@ CAPS_DELIVERY = [
     (0, 2.5, "You change files on a branch, never straight on main.", "1"),
     (2.5, 6.5, "./lab check tests the change on your PC. Red? Fix it now, before anyone else sees it.", "2"),
     (6.5, 9, "Fixed and checked again: green.", "2"),
-    (9, 12, "git push runs ./lab check once more (a pre-push hook): a red change never leaves your PC. Then open a PR.",
-     "3"),
-    (12, 15, "A human reads the diff. Then the owner merges it: main only ever changes this way.", "4-5"),
-    (15, 20, "Argo CD sees the new main and deploys it. No CI server anywhere: every test ran on your PC.", "6"),
+    (9, 11.5, "git push runs ./lab check once more (a pre-push hook), then you open a PR.", "3"),
+    (11.5, 14.5, "CI: GitHub runs the same check on its own machines, for every PR. Nobody can skip it.", "4"),
+    (14.5, 18, "A human reads the diff. A maintainer merges, and main accepts it only when CI is green.", "5-6"),
+    (18, 22, "Argo CD sees the new main and deploys it. CI tested the change; CD shipped it.", "7"),
 ]
 
 
@@ -845,7 +847,7 @@ GIFS = {
     "monitoring": (19, "Monitoring: measure all the time, shout when it matters", "Lesson 4", g_monitoring,
                    CAPS_MONITORING),
     "gitops": (21, "GitOps: Git is the boss", "Lesson 5", g_gitops, CAPS_GITOPS),
-    "delivery": (20, "Delivery: every change takes the same road", "Lesson 6", g_delivery, CAPS_DELIVERY),
+    "delivery": (22, "CI/CD: every change takes the same road", "Lesson 6", g_delivery, CAPS_DELIVERY),
     "troubleshooting": (24, "Troubleshooting: walk the ladder, don't guess", "Lesson 7", g_troubleshooting,
                         CAPS_TROUBLE),
 }

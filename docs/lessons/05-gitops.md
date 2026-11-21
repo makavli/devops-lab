@@ -34,7 +34,7 @@ runs, or why. With GitOps, nobody applies apps by hand: you change Git.
 | Healthy, Progressing, Degraded | the app works / is still starting / is broken |
 | selfHeal | Argo CD undoes changes made by hand |
 | prune | a file deleted from Git gets its object deleted from the cluster |
-| deploy key | a read-only key that lets Argo CD read this private repo |
+| deploy key | a read-only key that lets Argo CD read your repo |
 
 ## In our lab
 
