@@ -705,7 +705,7 @@ CAPS_GITOPS = [
 
 STATIONS_D = [("branch", "your change", ""), ("./lab check", "on your PC", ""), ("push", "the hook checks", "once more"),
               ("CI", "GitHub checks", "on its machines"), ("review", "a human reads", "the diff"),
-              ("merge", "into main", "(owner, CI green)"), ("Argo CD", "deploys it", "")]
+              ("merge", "into main", "(CI green)"), ("Argo CD", "deploys it", "")]
 MOVES_D = [(0, 0), (2.5, 0), (3.3, 1), (5.6, 1), (6.4, 0), (6.6, 0), (7.4, 1), (9.0, 1), (9.8, 2), (11.6, 2),
            (12.4, 3), (14.6, 3), (15.4, 4), (16.6, 4), (17.2, 5), (17.8, 5), (18.4, 6)]
 MARKS_D = [(0, 2.4, True), (1, 8.2, True), (2, 11.0, True), (3, 14.0, True), (4, 16.2, True), (5, 17.4, True),
@@ -766,7 +766,7 @@ CAPS_DELIVERY = [
     (6.5, 9, "Fixed and checked again: green.", "2"),
     (9, 11.5, "git push runs ./lab check once more (a pre-push hook), then you open a PR.", "3"),
     (11.5, 14.5, "CI: GitHub runs the same check on its own machines, for every PR. Nobody can skip it.", "4"),
-    (14.5, 18, "A human reads the diff. The owner merges, and main accepts it only when CI is green.", "5-6"),
+    (14.5, 18, "A human reads the diff. A maintainer merges, and main accepts it only when CI is green.", "5-6"),
     (18, 22, "Argo CD sees the new main and deploys it. CI tested the change; CD shipped it.", "7"),
 ]
 

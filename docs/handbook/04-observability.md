@@ -64,15 +64,17 @@ spec:
     - name: echo
       rules:
         - alert: EchoReplicasMissing
-          expr: kube_deployment_status_replicas_available{deployment="echo"} < 3
+          expr: kube_deployment_status_replicas_available{deployment="echo"} < 5
           for: 2m
           labels: { severity: warning }
-          annotations: { summary: "echo has {{ $value }} of 3 replicas available" }
+          annotations: { summary: "echo has {{ $value }} of 5 replicas available" }
 ```
 
 ## Exercises
-1. Add the rule above under `apps/echo/`, scale echo to 1, watch it go Pending → Firing in Alertmanager.
+1. Add the rule above under `apps/echo/`, then set `replicas: 1` in Git (selfHeal undoes a `kubectl scale`),
+   and watch it go Pending → Firing in Alertmanager.
 2. Build a Grafana panel for the request-rate query while running a curl loop; kill a pod mid-loop.
-3. Configure an Alertmanager receiver (a webhook to a local `agnhost netexec` pod) via `alertmanager.config` in values.
-4. Load test: `kubectl run load --rm -it --image=williamyeh/hey -- -z 60s -c 20 http://echo.default/hostname`,
-   then find the CPU throttling in Grafana.
+3. Configure an Alertmanager receiver via `alertmanager.config` in values: a webhook to a small pod that logs
+   what it receives. Give that pod no HTTPRoute (agnhost `netexec`, for one, also runs commands on `/shell`).
+4. Load test: `kubectl run load --rm -it --image=williamyeh/hey@sha256:6e63ae9c5801204cf7abe22c9ddf82d1bcbc7140ffd206a9bd83a8a643dcd6f2 -- -z 60s -c 20 http://echo.default/hostname`,
+   then find the CPU throttling in Grafana. The third-party image is pinned by digest: a tag can be moved.

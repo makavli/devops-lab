@@ -1,6 +1,6 @@
 name: close-issue
 
-# A pull request closed while its checks are red would leave open the issue test.yml opened for it: this job closes
+# A pull request closed while its checks are red would leave open the issue check.yml opened for it: this job closes
 # it. Its token may write issues and nothing else. A fork's pull request never gets an issue, so it is left out.
 on:
   pull_request:

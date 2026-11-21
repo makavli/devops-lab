@@ -1,4 +1,5 @@
 # Keeps the pinned action SHAs in the workflows fresh: one pull request a month at most, free on a public repo.
+# It does not see the pins at the top of ./lab (charts, tools, schema commit): those are bumped by hand.
 version: 2
 updates:
   - package-ecosystem: github-actions

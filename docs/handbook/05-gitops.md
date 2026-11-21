@@ -12,7 +12,7 @@ PR merged to main ─► Argo CD repo-server renders apps/ ─► application-co
 ## Here
 | Piece | Where |
 |---|---|
-| Argo CD v3.6 (chart pinned in `./lab`) | namespace `argocd`, values `platform/argocd/values.yaml` |
+| Argo CD v3.6.1 (chart pinned in `./lab`) | namespace `argocd`, values `platform/argocd/values.yaml` |
 | UI | http://argocd.localtest.me, `admin` / `./lab passwords` |
 | Root Application `apps` | `gitops/root.yaml`: syncs `apps/` (recursive) from `main` |
 | Repo access | read-only deploy key in Secret `repo-devops-lab`, created by `./lab gitops` |
@@ -30,9 +30,11 @@ Needs: gh logged in (keyring), the repo pushed to GitHub.
 ```bash
 ./lab gitops
 ```
-It generates a fresh ed25519 key in a temp dir, deletes any old `argocd-lab` deploy key on GitHub, uploads
-the new public key (read-only), stores the private key only in the cluster Secret, deletes the temp dir,
-and applies the root app. Rerun it any time to rotate. After `./lab down && ./lab up`, run it again.
+It generates a fresh ed25519 key in a temp dir, uploads the public half as a read-only `argocd-lab` deploy key,
+stores the private half in the cluster Secret, then deletes the older `argocd-lab` keys on GitHub and applies
+the root app. The temp dir goes when `./lab` exits, even on an error. Rerun it any time to rotate. After
+`./lab down && ./lab up`, run it again. Done with the lab for good? `./lab down`, then delete the key:
+`gh repo deploy-key list`, `gh repo deploy-key delete <id>`.
 
 Security notes: the key sits base64-encoded in etcd (no encryption at rest in kind). In prod: etcd
 encryption with KMS, and secrets from a manager (External Secrets Operator, Sealed Secrets), never in Git.
@@ -45,15 +47,20 @@ kubectl -n argocd get application apps -o jsonpath='{.status.sync.status} {.stat
 In the UI: the app tree (Deployment → ReplicaSet → Pods) with health per object, live diff, history and
 rollback, pod logs, and resource actions (restart, delete).
 
-Optional CLI: `curl -sSLo ~/.local/bin/argocd https://github.com/argoproj/argo-cd/releases/latest/download/argocd-linux-amd64 && chmod +x ~/.local/bin/argocd`,
-then `argocd login argocd.localtest.me --plaintext --grpc-web`.
+Optional CLI, pinned to the server's version and checked (bump it with `ARGOCD_VERSION` in `./lab`):
+```bash
+curl -fsSLo /tmp/argocd https://github.com/argoproj/argo-cd/releases/download/v3.6.1/argocd-linux-amd64
+echo "46d2fc941071f0a0c36326a67a431d34b1479e1a24737f7b367abc93968beadc  /tmp/argocd" | sha256sum -c \
+  && install -m 755 /tmp/argocd ~/.local/bin/argocd; rm -f /tmp/argocd
+argocd login argocd.localtest.me --plaintext --grpc-web
+```
 
 First login hygiene: change the admin password (User Info → Update password), then
 `kubectl -n argocd delete secret argocd-initial-admin-secret` (after that, `./lab passwords` cannot show it).
 
 ## Exercises
-1. **Drift**: `kubectl scale deploy/echo --replicas=1`. Watch selfHeal put it back to 3 in the UI.
-2. **Change through Git**: on a branch set `replicas: 5`, PR, merge; watch OutOfSync → Syncing → Synced.
+1. **Drift**: `kubectl scale deploy/echo --replicas=1`. Watch selfHeal put it back to 5 in the UI.
+2. **Change through Git**: on a branch set `replicas: 6`, PR, merge; watch OutOfSync → Syncing → Synced.
 3. **Prune**: add a ConfigMap file under `apps/echo/`, merge, then delete the file and merge. It disappears.
 4. **Bad deploy**: set an image tag that does not exist. Health goes Degraded (ImagePullBackOff).
    Roll back by reverting the commit, not by clicking: Git stays the truth.

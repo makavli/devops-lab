@@ -1,0 +1,24 @@
+#!/usr/bin/env bash
+# Opt in once per clone: git config core.hooksPath .githooks
+# Refuses a push to main (main changes only through a pull request), then runs ./lab check on each pushed commit
+# in a throwaway worktree, so uncommitted files cannot hide a broken commit.
+set -u
+z=0000000000000000000000000000000000000000
+shas=
+while read -r _ local_sha remote_ref _; do
+  if [ "$remote_ref" = refs/heads/main ]; then
+    echo "pre-push: direct pushes to main are refused: push a branch and open a pull request." >&2
+    exit 1
+  fi
+  [ "$local_sha" = "$z" ] || shas="$shas $local_sha"   # a branch delete pushes no content
+done
+for sha in $shas; do
+  tmp=$(mktemp -d)
+  git worktree add -q --detach "$tmp" "$sha" && (cd "$tmp" && ./lab check) > "$tmp.log" 2>&1; rc=$?
+  [ "$rc" = 0 ] || tail -15 "$tmp.log" >&2
+  git worktree remove --force "$tmp"; rm -f "$tmp.log"
+  if [ "$rc" != 0 ]; then
+    echo "pre-push: ./lab check failed on $(git log -1 --format=%h "$sha"): fix it, then push again." >&2
+    exit 1
+  fi
+done

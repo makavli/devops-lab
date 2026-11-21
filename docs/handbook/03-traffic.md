@@ -12,9 +12,9 @@ WSL only    ─► 172.18.255.200:80 (MetalLB) ─► a worker answers ARP ─�
   gratuitous ARP. No real load spreading at L2: one node takes all traffic for an IP. BGP mode
   (ECMP across routers) is what spreads it in a datacenter.
 - The pool is the top of the kind Docker subnet, away from node IPs Docker assigns from the bottom.
-- Gotcha we hit: kind labels the control plane `node.kubernetes.io/exclude-from-external-load-balancers`,
+- Gotcha: kind labels the control plane `node.kubernetes.io/exclude-from-external-load-balancers`,
   so MetalLB never announces from it. With `externalTrafficPolicy: Local` (Envoy Gateway's default)
-  only Envoy's own node may announce, so the IP went dead. We use `Cluster`: any worker announces and
+  only Envoy's own node may announce, so the IP goes dead. The lab uses `Cluster`: any worker announces and
   kube-proxy forwards. Trade-off: `Local` keeps the client source IP and saves a hop; `Cluster` SNATs.
 
 ## Gateway API (`platform/envoy-gateway/gateway.yaml`)
@@ -26,7 +26,7 @@ Role-oriented, the successor of Ingress (ingress-nginx is retired upstream):
 | Gateway | platform team | `lab` in `default`, HTTP :80, routes from all namespaces |
 | HTTPRoute | app team | one per app, matched on hostname |
 
-EnvoyProxy settings we needed for kind, each one a lesson:
+EnvoyProxy settings kind needs, each one a lesson:
 - `nodeSelector` + toleration: run on the only node with published ports.
 - hostPort `80 → 10080`: Envoy is non-root, so EG shifts privileged listener ports by +10000.
 - Rollout strategy `maxSurge: 0, maxUnavailable: 1`: a surge pod could never bind the same hostPort.
@@ -44,7 +44,7 @@ kubectl -n envoy-gateway-system logs deploy/envoy-gateway | grep -i error
 - Envoy watches EndpointSlices and balances **per request** (L7). kube-proxy balances **per connection**
   (L4): with keep-alive or gRPC, one client sticks to one pod. A classic production surprise.
 - Policy here: **ROUND_ROBIN** (Envoy Gateway's default). Each Envoy worker thread keeps its own cursor, so
-  a sequential curl loop with new connections can come out uneven (we saw 10/13/7).
+  a sequential curl loop with new connections can come out uneven (10/13/7 over 30 requests is normal).
 - Read the live config:
   ```bash
   P=$(kubectl -n envoy-gateway-system get pod -l app.kubernetes.io/component=proxy -o name)
@@ -67,8 +67,8 @@ Measure: `for i in $(seq 300); do curl -s echo.localtest.me/hostname; echo; done
 ## Scheduling: topology spread
 `apps/echo/echo.yaml` spreads replicas across nodes with `maxSkew: 1`. Two fields matter:
 - `nodeTaintsPolicy: Honor`: by default tainted nodes **count** as domains. The control plane (0 pods,
-  never schedulable) became the global minimum, every placement broke the skew, and the rollout deadlocked
-  (`maxUnavailable` rounds down to 0 for 3 replicas, so no old pod could leave).
+  never schedulable) becomes the global minimum, every placement breaks the skew, and a rollout can deadlock
+  (at 3 replicas the default 25% `maxUnavailable` rounds down to 0, so no old pod can leave).
 - `matchLabelKeys: [pod-template-hash]`: count only the new ReplicaSet during a rollout.
 
 Diagnose Pending pods with `kubectl get events --field-selector involvedObject.name=<pod>`: the scheduler

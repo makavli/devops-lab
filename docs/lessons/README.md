@@ -25,7 +25,7 @@ Read them in order: each one builds on the one before. About 10 minutes each, pl
 - **Check yourself**: three questions; click a question to see its answer.
 
 The lessons are the gentle path. The [handbooks](../handbook/) are the deep reference: every flag, trade-off
-and gotcha we hit while building the lab.
+and gotcha of the lab.
 
 ## Before "Try it"
 

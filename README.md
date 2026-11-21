@@ -20,23 +20,41 @@ each piece of a DevOps stack works.
 The **lessons** are the gentle path: plain words, every term explained, one animation each. The
 **handbooks** are the deep reference: every flag, trade-off and gotcha.
 
+## Before you start
+
+A Windows PC with WSL2, or any x86-64 Linux, with about 6 GB of RAM free for the lab. `./lab` installs nothing
+system-wide: it expects these tools on the PATH. The versions are the ones the lab was tested with.
+
+| Tool | Tested | Install |
+|---|---|---|
+| WSL2 + Ubuntu 24.04 (Windows only) | Ubuntu 24.04.5 | [Microsoft's guide](https://learn.microsoft.com/windows/wsl/install), then [handbook 1](docs/handbook/01-host.md) |
+| Docker Engine | 29.9 | [docs.docker.com](https://docs.docker.com/engine/install/ubuntu/) |
+| kind | 0.33.0 | [kind's quick start](https://kind.sigs.k8s.io/docs/user/quick-start/#installation) |
+| kubectl | 1.37 | [kubernetes.io](https://kubernetes.io/docs/tasks/tools/install-kubectl-linux/) |
+| helm | 3.22 | [helm.sh](https://helm.sh/docs/intro/install/) |
+| gh (for `./lab gitops`) | 2.45 | [GitHub CLI for Linux](https://github.com/cli/cli/blob/trunk/docs/install_linux.md) |
+| shellcheck, jq (optional) | 0.9.0, 1.7 | `sudo apt-get install -y shellcheck jq` |
+
+`./lab tools` adds kubeconform and k9s, as linux-amd64 builds only. GitOps needs a repo of your own: fork this
+one, clone your fork, and run `gh repo set-default <you>/devops-lab` so `./lab gitops` points Argo CD at it.
+
 ## Your day
 
-Open a WSL terminal first (after a boot it asks for the SSH key passphrase), then `cd ~/devops-lab`.
+Open a WSL terminal, then `cd` into your clone (`~/devops-lab` in these docs).
 
 | When | Run | What happens |
 |---|---|---|
 | The very first time | `./lab tools`, then `./lab up` | installs kubeconform and k9s, then builds the cluster and the whole platform (host setup: [handbook 1](docs/handbook/01-host.md)) |
 | Start of the day | `./lab start` | starts the stopped cluster and waits until traffic flows (about 1 min) |
 | Any time | `./lab status` | nodes, routes, unhealthy pods, Argo CD apps, the URLs |
-| End of the day | `./lab turnoff` | stops the cluster cleanly, then shuts down WSL and frees the RAM |
+| End of the day | `./lab turnoff` | stops the cluster cleanly, then shuts down WSL (every distro) and frees the RAM |
 
 ## Every `./lab` command
 
 | Command | What it does |
 |---|---|
 | `./lab start` | start of the day: brings the stopped cluster back, waits until traffic flows end to end |
-| `./lab turnoff` | end of the day: `./lab stop`, then shuts down WSL (closes the terminal) |
+| `./lab turnoff` | end of the day: `./lab stop`, then shuts down WSL, every distro (closes the terminal) |
 | `./lab stop` | stops the cluster but leaves WSL running (state kept) |
 | `./lab status` | nodes, gateway, routes, unhealthy pods, Argo CD apps, URLs |
 | `./lab passwords` | Grafana and Argo CD admin passwords |
@@ -57,7 +75,13 @@ Open a WSL terminal first (after a boot it asks for the SSH key passphrase), the
 | http://alertmanager.localtest.me | where alerts are routed | none |
 | http://argocd.localtest.me | GitOps: the app tree and its health | admin / `./lab passwords` |
 
-`*.localtest.me` is public DNS that points to 127.0.0.1, so no hosts-file edits.
+`*.localtest.me` is a third-party public DNS name that answers 127.0.0.1, so no hosts-file edits are needed.
+Offline, or would rather not depend on it? Add this line to your hosts file (Windows:
+`C:\Windows\System32\drivers\etc\hosts`, as admin; WSL copies it at its next start. Linux: `/etc/hosts`):
+
+```
+127.0.0.1 echo.localtest.me grafana.localtest.me prometheus.localtest.me alertmanager.localtest.me argocd.localtest.me
+```
 
 ## Make a change
 
@@ -68,9 +92,9 @@ CI on GitHub's free runners. `main` takes a change only through a PR whose CI is
 |---|---|---|
 | 1. Branch | `git switch -c fix/my-change` | never work on `main` |
 | 2. Test | `./lab check` | catches a typo before the cluster sees it |
-| 3. Push | `git push -u origin HEAD` | the pre-push hook runs `./lab check` again and refuses a red one |
+| 3. Push | `git push -u origin HEAD` | the pre-push hook (switch it on below) runs `./lab check` again and refuses a red one |
 | 4. Pull request | `gh pr create --fill` | CI runs `./lab check` on GitHub (`gh pr checks --watch`); a red run opens an issue |
-| 5. Merge | `gh pr merge <number> --merge --delete-branch` | only the owner merges, and only once CI is green |
+| 5. Merge | `gh pr merge <number> --merge --delete-branch` | a maintainer merges, only once CI is green (in your fork, that is you) |
 | 6. Deploy | nothing to run | Argo CD syncs `apps/` from `main` (a change in `platform/` or `cluster/` needs `./lab up`) |
 | 7. Catch up | `git switch main && git pull` | your copy matches GitHub again |
 
@@ -81,7 +105,7 @@ for pr in 7 8 9; do gh pr merge "$pr" --merge --delete-branch; done
 git switch main && git pull
 ```
 
-The hook lives in `.git/hooks/pre-push` on this PC, not in the repo: a fresh clone needs it copied back
+Switch the pre-push hook on once per clone: `git config core.hooksPath .githooks`
 ([handbook 6](docs/handbook/06-ci.md)).
 
 ## The animations
@@ -137,7 +161,7 @@ Click one to open its lesson.
 
 ## What's where
 
-| Path | Owner | Content |
+| Path | Team | Content |
 |---|---|---|
 | `lab` | everyone | the single entry point; pinned platform versions at the top |
 | `cluster/kind.yaml` | platform | node layout, port mappings |
@@ -146,6 +170,7 @@ Click one to open its lesson.
 | `gitops/root.yaml` | platform | the Argo CD root Application that watches `apps/` |
 | `docs/lessons/` | everyone | the plain-word lessons and their GIFs (`make_gifs.py` redraws them) |
 | `docs/handbook/` | everyone | the deep reference |
+| `.githooks/pre-push` | everyone | the opt-in hook: no push to `main`, `./lab check` on the pushed commit |
 | `.github/` | platform | CI (`check.yml`), the issue closer, Dependabot for the action pins, the PR template |
 | `SECURITY.md` | everyone | what counts as a security problem, and how to report one privately |
 

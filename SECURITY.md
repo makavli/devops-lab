@@ -13,8 +13,10 @@ A security problem is anything that makes it do more than that, for example:
 - a workflow that a pull request, from a fork or not, could use to run code with write access or secrets;
 - a command in the docs that does harm when run as written, or changes state while it is presented as a read.
 
-Known and accepted: the lab is for practice on one PC. Its web UIs use plain HTTP on `*.localtest.me`
-(127.0.0.1) and admin passwords generated in the cluster. Do not expose it to a network.
+Known and accepted: the lab is for practice on one PC, and its port 80 listens on 127.0.0.1 only. Its web UIs
+use plain HTTP and admin passwords generated in the cluster. `*.localtest.me` is a third-party public DNS name
+that answers 127.0.0.1; to avoid depending on it, use the hosts-file line in the README. Pods have no
+NetworkPolicy, and the demo app runs no commands. Do not expose the lab to a network.
 
 ## Supported versions
 

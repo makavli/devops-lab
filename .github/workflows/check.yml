@@ -31,7 +31,7 @@ jobs:
       - name: ./lab check
         run: ./lab check
 
-  # One name for the rule on main to require, whatever jobs are added later.
+  # One name for the rule on main to require: add every new job to `needs:` so it joins the gate.
   passed:
     if: always()
     needs: check
@@ -43,9 +43,9 @@ jobs:
 
   # Red checks open an issue: one per pull request, linked to it, and one for main. The next green run closes it, and
   # so does closing the pull request (close-issue.yml). What stops the merge is `passed`; the issue is the notice.
-  # A fork's token cannot write issues: forks are left out.
+  # A fork's token cannot write issues, and neither can a Dependabot run's: both are left out.
   issue:
-    if: ${{ !cancelled() && (github.event_name == 'push' || github.event.pull_request.head.repo.full_name == github.repository) }}
+    if: ${{ !cancelled() && github.actor != 'dependabot[bot]' && (github.event_name == 'push' || github.event.pull_request.head.repo.full_name == github.repository) }}
     needs: passed
     runs-on: ubuntu-latest
     timeout-minutes: 2

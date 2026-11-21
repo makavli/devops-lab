@@ -47,8 +47,8 @@ Ubuntu, which you open like any terminal. Docker runs inside it.
   and `lab-worker2`.
 - Anything that listens on a port inside WSL shows up on Windows `localhost`. That is how your Windows
   browser reaches the lab.
-- No secret is kept as plain text: your GitHub login sits in an encrypted keyring, and your SSH key has a
-  passphrase. That is why WSL asks for two passwords when it starts.
+- With the optional setup in handbook 1, no secret is kept as plain text: your GitHub login sits in an
+  encrypted keyring, and your SSH key has a passphrase. That setup asks for two passwords when WSL starts.
 
 Deep dive: [handbook 1, the host](../handbook/01-host.md).
 
@@ -67,7 +67,7 @@ Deep dive: [handbook 1, the host](../handbook/01-host.md).
    exit
    ```
 
-5. `docker images` lists the images on this PC; `docker history ubuntu:24.04` shows the layers of one.
+5. `docker images` lists the images on your machine; `docker history ubuntu:24.04` shows the layers of one.
 
 ## When it breaks
 
@@ -75,7 +75,7 @@ Deep dive: [handbook 1, the host](../handbook/01-host.md).
   than that change. In Windows: `wsl --terminate Ubuntu-24.04`, then open WSL again.
 - **`wsl` won't start, error `Wsl/0x80070422`**: the WSL service is disabled in Windows. In an admin
   PowerShell: `Set-Service WSLService -StartupType Automatic; Start-Service WSLService`.
-- **The PC feels slow**: WSL may take up to half the RAM, and the lab needs 4 to 5 GB of it. You can set a
+- **Your PC feels slow**: WSL may take up to half the RAM, and the lab needs 4 to 5 GB of it. You can set a
   cap in `C:\Users\<you>\.wslconfig` (handbook 1 shows how).
 
 ## Check yourself

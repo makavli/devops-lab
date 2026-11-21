@@ -42,13 +42,13 @@ Think of a newspaper.
 - The gate is `./lab check`. It reads the `lab` script for shell mistakes (shellcheck), checks the workflow
   rules, and checks every Kubernetes file against its official format (kubeconform). A typo like
   `replcas: 5` fails here, not in the cluster.
-- The pre-push hook (`.git/hooks/pre-push`, on this PC only) runs `./lab check` before every push, and also
-  refuses pushes to `main`. Hooks are not part of the repo: a fresh clone has none until you add it.
+- The pre-push hook (`.githooks/pre-push`) runs `./lab check` before every push, and also refuses pushes to
+  `main`. Git never switches a hook on by itself: run `git config core.hooksPath .githooks` once.
 - CI: `.github/workflows/check.yml` runs `./lab check` on every PR, on GitHub's machines. It is free because the
   repo is public. Its result is a check called `passed`. When it is red, an issue opens on the PR; the next
   green run closes it.
-- `main` is protected by a ruleset: no direct push, and a PR merges only when `passed` is green. Only the owner
-  merges. After the merge, Argo CD (lesson 5) deploys whatever changed in `apps/`.
+- `main` is protected by a ruleset: no direct push, and a PR merges only when `passed` is green. A maintainer
+  merges (in your own fork, that is you). After the merge, Argo CD (lesson 5) deploys whatever changed in `apps/`.
 
 Deep dive: [handbook 6, CI and delivery](../handbook/06-ci.md).
 
@@ -63,7 +63,7 @@ Deep dive: [handbook 6, CI and delivery](../handbook/06-ci.md).
    git checkout apps/echo/echo.yaml   # undo
    ```
 
-3. See the hook guard the door: on a test branch, commit that same typo and `git push`. The push is
+3. See the hook guard the door (switch it on first, above): on a test branch, commit that same typo and `git push`. The push is
    refused with "./lab check failed". Undo the commit (`git reset --hard HEAD~1`) and delete the branch.
 4. The whole road for real: a branch, a small change (a typo in a doc), `./lab check`, `git push`,
    `gh pr create --fill`, then `gh pr checks --watch` to watch CI. Merge once `passed` is green.
