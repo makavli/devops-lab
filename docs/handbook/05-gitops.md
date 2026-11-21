@@ -49,9 +49,10 @@ rollback, pod logs, and resource actions (restart, delete).
 
 Optional CLI, pinned to the server's version and checked (bump it with `ARGOCD_VERSION` in `./lab`):
 ```bash
-curl -fsSLo /tmp/argocd https://github.com/argoproj/argo-cd/releases/download/v3.6.1/argocd-linux-amd64
-echo "46d2fc941071f0a0c36326a67a431d34b1479e1a24737f7b367abc93968beadc  /tmp/argocd" | sha256sum -c \
-  && install -m 755 /tmp/argocd ~/.local/bin/argocd; rm -f /tmp/argocd
+d=$(mktemp -d)
+curl -fsSL --proto '=https' -o "$d/argocd" https://github.com/argoproj/argo-cd/releases/download/v3.6.1/argocd-linux-amd64
+echo "46d2fc941071f0a0c36326a67a431d34b1479e1a24737f7b367abc93968beadc  $d/argocd" | sha256sum -c \
+  && install -m 755 "$d/argocd" ~/.local/bin/argocd; rm -rf "$d"
 argocd login argocd.localtest.me --plaintext --grpc-web
 ```
 

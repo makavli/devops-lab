@@ -13,10 +13,10 @@ while read -r _ local_sha remote_ref _; do
   [ "$local_sha" = "$z" ] || shas="$shas $local_sha"   # a branch delete pushes no content
 done
 for sha in $shas; do
-  tmp=$(mktemp -d)
-  git worktree add -q --detach "$tmp" "$sha" && (cd "$tmp" && ./lab check) > "$tmp.log" 2>&1; rc=$?
-  [ "$rc" = 0 ] || tail -15 "$tmp.log" >&2
-  git worktree remove --force "$tmp"; rm -f "$tmp.log"
+  d=$(mktemp -d)   # the worktree and its log both live in here, removed whatever happens
+  git worktree add -q --detach "$d/wt" "$sha" && (cd "$d/wt" && ./lab check) > "$d/log" 2>&1; rc=$?
+  [ "$rc" = 0 ] || tail -15 "$d/log" 2>/dev/null >&2
+  git worktree remove --force "$d/wt" 2>/dev/null; rm -rf "$d"
   if [ "$rc" != 0 ]; then
     echo "pre-push: ./lab check failed on $(git log -1 --format=%h "$sha"): fix it, then push again." >&2
     exit 1
