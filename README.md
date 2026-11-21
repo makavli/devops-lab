@@ -48,6 +48,11 @@ WSL2 → Docker Engine → kind (3 nodes) → MetalLB + Gateway API (Envoy) → 
 | `apps/` | app teams | workloads; delivered by Argo CD once GitOps is on |
 | `gitops/root.yaml` | platform | the Argo CD root Application that watches `apps/` |
 
+## Lessons
+
+New to a piece of this stack? Start with the [lessons](docs/lessons/README.md): every layer explained in
+plain words, each with an animation. The handbooks below are the deep reference.
+
 ## Handbooks
 
 1. [Host: WSL2, Docker, credentials](docs/handbook/01-host.md)
