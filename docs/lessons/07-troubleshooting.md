@@ -50,8 +50,8 @@ Two habits on top:
 
 ## In our lab
 
-- `./lab status` gives the overview: nodes, gateway, routes, Argo CD, and pods that are not Running. A
-  crash-looping pod still counts as Running, though, so `kubectl get pods -A` is the safer first rung.
+- `./lab status` gives the overview: nodes, gateway, routes, Argo CD, and every pod that is not ready
+  (crash-looping ones included).
 - Recent events across the cluster: `kubectl get events -A --sort-by=.lastTimestamp | tail -20`.
 - The [troubleshooting runbook](../handbook/07-troubleshooting.md) lists every problem this lab has
   actually had, with its fix.
