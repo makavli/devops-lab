@@ -14,7 +14,7 @@ each piece of a DevOps stack works.
 | 3 | Traffic | MetalLB, Gateway API, Envoy | one front door, many rooms | [lesson](docs/lessons/03-traffic.md) · [handbook](docs/handbook/03-traffic.md) |
 | 4 | Monitoring | Prometheus, Grafana, Alertmanager | measure all the time, shout when it matters | [lesson](docs/lessons/04-monitoring.md) · [handbook](docs/handbook/04-observability.md) |
 | 5 | GitOps | Argo CD | Git is the boss: the cluster copies what `main` says | [lesson](docs/lessons/05-gitops.md) · [handbook](docs/handbook/05-gitops.md) |
-| 6 | Delivery | `./lab check`, pre-push hook | every change takes the same road, tested on your PC (no CI) | [lesson](docs/lessons/06-delivery.md) · [handbook](docs/handbook/06-ci.md) |
+| 6 | Delivery | `./lab check`, pre-push hook, GitHub Actions | every change takes the same road, tested on your PC and again by CI | [lesson](docs/lessons/06-delivery.md) · [handbook](docs/handbook/06-ci.md) |
 | 7 | Troubleshooting | `./lab status`, kubectl | walk the ladder, don't guess | [lesson](docs/lessons/07-troubleshooting.md) · [handbook](docs/handbook/07-troubleshooting.md) |
 
 The **lessons** are the gentle path: plain words, every term explained, one animation each. The
@@ -40,11 +40,11 @@ Open a WSL terminal first (after a boot it asks for the SSH key passphrase), the
 | `./lab stop` | stops the cluster but leaves WSL running (state kept) |
 | `./lab status` | nodes, gateway, routes, unhealthy pods, Argo CD apps, URLs |
 | `./lab passwords` | Grafana and Argo CD admin passwords |
-| `./lab check` | the test gate: shell lint + every manifest against its schema (the pre-push hook runs it too) |
+| `./lab check` | the test gate: shell lint, workflow rules, every manifest against its schema (the pre-push hook and CI run it too) |
 | `./lab up` | builds or upgrades the whole platform; safe to run again |
 | `./lab down` | deletes the cluster (`./lab up` rebuilds everything) |
 | `./lab gitops` | gives Argo CD a fresh read-only deploy key, then applies the root app |
-| `./lab tools` | installs kubeconform and k9s into `~/.local/bin` (no sudo) |
+| `./lab tools` | installs the pinned kubeconform and k9s into `~/.local/bin`, checksums verified (no sudo) |
 | `./lab help` | this list |
 
 ## Open in the browser
@@ -61,15 +61,16 @@ Open a WSL terminal first (after a boot it asks for the SSH key passphrase), the
 
 ## Make a change
 
-Every change takes the same road. There is no CI: every test runs on your PC, before the push.
+Every change takes the same road, and `./lab check` runs three times: on your PC, in the pre-push hook, and in
+CI on GitHub's free runners. `main` takes a change only through a PR whose CI is green.
 
 | Step | Command | Why |
 |---|---|---|
 | 1. Branch | `git switch -c fix/my-change` | never work on `main` |
 | 2. Test | `./lab check` | catches a typo before the cluster sees it |
 | 3. Push | `git push -u origin HEAD` | the pre-push hook runs `./lab check` again and refuses a red one |
-| 4. Pull request | `gh pr create --fill` | the diff, ready to review |
-| 5. Merge | `gh pr merge <number> --merge --delete-branch` | only the owner merges |
+| 4. Pull request | `gh pr create --fill` | CI runs `./lab check` on GitHub (`gh pr checks --watch`); a red run opens an issue |
+| 5. Merge | `gh pr merge <number> --merge --delete-branch` | only the owner merges, and only once CI is green |
 | 6. Deploy | nothing to run | Argo CD syncs `apps/` from `main` (a change in `platform/` or `cluster/` needs `./lab up`) |
 | 7. Catch up | `git switch main && git pull` | your copy matches GitHub again |
 
@@ -98,7 +99,7 @@ Click one to open its lesson.
 </tr>
 <tr>
 <td><a href="docs/lessons/05-gitops.md"><img src="docs/lessons/gifs/gitops.gif" alt="Git says 3, then a merged PR says 5 and Argo CD syncs; a hand edit scales to 1 and selfHeal puts it back to 5"></a><br><b>5. GitOps</b>: Git is the boss</td>
-<td><a href="docs/lessons/06-delivery.md"><img src="docs/lessons/gifs/delivery.gif" alt="A change goes from branch to ./lab check (red, fixed, green), push with the hook checking again, review, merge, and Argo CD"></a><br><b>6. Delivery</b>: the same road for every change</td>
+<td><a href="docs/lessons/06-delivery.md"><img src="docs/lessons/gifs/delivery.gif" alt="A change goes from branch to ./lab check (red, fixed, green), the push hook, CI on GitHub, review, merge, and Argo CD"></a><br><b>6. CI/CD</b>: the same road for every change</td>
 </tr>
 <tr>
 <td><a href="docs/lessons/07-troubleshooting.md"><img src="docs/lessons/gifs/troubleshooting.gif" alt="The ladder: get pods shows CrashLoopBackOff, events show restarts, describe shows exit code 1, logs show a typo; fix in Git"></a><br><b>7. Troubleshooting</b>: walk the ladder, don't guess</td>
@@ -130,6 +131,7 @@ Click one to open its lesson.
 | Nothing answers after a reboot | `./lab start` |
 | One page does not load | `./lab status`: look at the unhealthy pods and the routes, then [lesson 7](docs/lessons/07-troubleshooting.md) |
 | `git push` refused: "./lab check failed" | `./lab check`, read the error, fix it, commit, push again |
+| CI red on a PR (an issue opened) | open the run from the issue (`gh run view --log-failed`), fix it on the same branch, push: the green run closes the issue |
 | Argo CD shows Degraded | the files were valid but the app is not: revert the commit ([lesson 5](docs/lessons/05-gitops.md)) |
 | VS Code lost WSL after `./lab turnoff` | Command Palette → "Reload Window" |
 
@@ -144,3 +146,9 @@ Click one to open its lesson.
 | `gitops/root.yaml` | platform | the Argo CD root Application that watches `apps/` |
 | `docs/lessons/` | everyone | the plain-word lessons and their GIFs (`make_gifs.py` redraws them) |
 | `docs/handbook/` | everyone | the deep reference |
+| `.github/` | platform | CI (`check.yml`), the issue closer, Dependabot for the action pins, the PR template |
+| `SECURITY.md` | everyone | what counts as a security problem, and how to report one privately |
+
+## License
+
+MIT: see [LICENSE](LICENSE).

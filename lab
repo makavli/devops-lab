@@ -11,11 +11,25 @@ METALLB_VERSION=0.16.2
 ENVOY_GATEWAY_VERSION=1.10.0
 KPS_VERSION=93.3.0          # kube-prometheus-stack
 ARGOCD_VERSION=10.18.0      # argo-cd chart (Argo CD v3.6)
+# Tools ./lab tools installs, each checked against its release's SHA-256 (CI downloads kubeconform too).
+# Bump a version and its checksum together. shortcut: linux-amd64 only; add an arch switch for arm64 hosts.
+KUBECONFORM_VERSION=0.8.0
+KUBECONFORM_SHA256=9bc2bffbf71f261128533edaf912153948b7ff238f9a531ae6d34466ec287883   # kubeconform-linux-amd64.tar.gz
+K9S_VERSION=0.51.0
+K9S_SHA256=c3752ad51a5a4015a113819c4eeb6e55a4d0e4b8e652494797532f6fc8161dd7           # k9s_Linux_amd64.tar.gz
 
 log() { printf '\n\033[1;34m==> %s\033[0m\n' "$*"; }
 # retry N cmd...: admission webhooks answer a few seconds after their Deployment is Ready
 retry() { local n=$1; shift; until "$@"; do ((--n)) || return 1; sleep 5; done; }
 repo() { gh repo view --json nameWithOwner -q .nameWithOwner; }
+# fetch URL SHA256 FILE: download a release tarball, refuse it unless the checksum matches, unpack FILE into ~/.local/bin
+fetch() {
+  local tmp ok=0; tmp=$(mktemp)
+  if curl -fsSL "$1" -o "$tmp" && echo "$2  $tmp" | sha256sum -c --quiet && mkdir -p ~/.local/bin \
+    && tar xzf "$tmp" -C ~/.local/bin "$3"; then ok=1; fi
+  rm -f "$tmp"
+  [ "$ok" = 1 ] || { echo "fetch: download, checksum or unpack failed: $1" >&2; return 1; }
+}
 
 ## up        create the cluster if missing, install/upgrade the whole platform, deploy apps
 cmd_up() {
@@ -133,23 +147,31 @@ cmd_gitops() {
   kubectl -n argocd get applications
 }
 
-## check     validate the shell script and every manifest against its schema (the pre-push hook runs it; no CI)
+## check     validate the script, the workflow rules and every manifest against its schema (the pre-push hook and CI run it)
 cmd_check() {
-  command -v kubeconform >/dev/null || cmd_tools
+  command -v kubeconform >/dev/null || install_kubeconform
   bash -n lab
   if command -v shellcheck >/dev/null; then shellcheck lab; else echo "shellcheck not installed: skipped"; fi
-  # No CI in this private repo (owner, 2026-11-21): every test runs locally, before the push.
-  if [ -d .github/workflows ]; then echo "check: no CI here; remove .github/workflows (docs/handbook/06-ci.md)" >&2; return 1; fi
+  # Public repo: CI only on GitHub's own runners (a fork's PR must never run on a self-hosted machine), and every
+  # action pinned to a full commit SHA (a tag can be moved to other code).
+  if grep -rnE '^[^#]*self-hosted' .github/workflows; then echo "check: no self-hosted runner in a public repo" >&2; return 1; fi
+  if grep -rnE '^\s*(-\s*)?uses:' .github/workflows | grep -vE 'uses:\s*[^@[:space:]]+@[0-9a-f]{40}(\s|$)'; then
+    echo "check: pin the actions above to a full commit SHA" >&2; return 1
+  fi
   find apps platform gitops -name '*.yaml' ! -name values.yaml -print0 | xargs -0 kubeconform -strict -summary \
     -schema-location default \
     -schema-location 'https://raw.githubusercontent.com/datreeio/CRDs-catalog/main/{{.Group}}/{{.ResourceKind}}_{{.ResourceAPIVersion}}.json'
 }
 
-## tools     install kubeconform and k9s into ~/.local/bin (no sudo)
+install_kubeconform() {
+  fetch "https://github.com/yannh/kubeconform/releases/download/v$KUBECONFORM_VERSION/kubeconform-linux-amd64.tar.gz" \
+    "$KUBECONFORM_SHA256" kubeconform
+}
+
+## tools     install the pinned kubeconform and k9s into ~/.local/bin, checksums verified (no sudo)
 cmd_tools() {
-  mkdir -p ~/.local/bin
-  curl -fsSL https://github.com/yannh/kubeconform/releases/latest/download/kubeconform-linux-amd64.tar.gz | tar xz -C ~/.local/bin kubeconform
-  curl -fsSL https://github.com/derailed/k9s/releases/latest/download/k9s_Linux_amd64.tar.gz | tar xz -C ~/.local/bin k9s
+  install_kubeconform
+  fetch "https://github.com/derailed/k9s/releases/download/v$K9S_VERSION/k9s_Linux_amd64.tar.gz" "$K9S_SHA256" k9s
   kubeconform -v; k9s version --short
 }
 
