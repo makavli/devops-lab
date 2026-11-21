@@ -104,8 +104,9 @@ cmd_status() {
   log nodes; kubectl get nodes
   log gateway; kubectl get gateway -A
   log routes; kubectl get httproute -A -o custom-columns='NAMESPACE:.metadata.namespace,NAME:.metadata.name,HOSTS:.spec.hostnames'
-  log "pods not Running/Succeeded"
-  kubectl get pods -A --field-selector=status.phase!=Running,status.phase!=Succeeded --no-headers 2>/dev/null || true
+  # READY x/y with x < y, minus finished Job pods. A phase filter missed CrashLoopBackOff: its phase stays Running.
+  log "pods not ready"
+  kubectl get pods -A --no-headers 2>/dev/null | awk '{ split($3, r, "/"); if (r[1] != r[2] && $4 != "Completed") print }' || true
   log "Argo CD applications"; kubectl -n argocd get applications 2>/dev/null || echo "(none yet: ./lab gitops)"
   log URLs
   printf '  %s\n' http://echo.localtest.me/hostname http://grafana.localtest.me http://prometheus.localtest.me \
